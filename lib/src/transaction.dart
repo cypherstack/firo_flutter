@@ -33,6 +33,7 @@ class Transaction {
   int locktime = 0;
   List<Input> ins = [];
   List<Output> outs = [];
+  Uint8List payload = null;
   Transaction();
 
   int addInput(Uint8List hash, int index, [int sequence, Uint8List scriptSig]) {
@@ -48,6 +49,10 @@ class Transaction {
   int addOutput(Uint8List scriptPubKey, int value) {
     outs.add(new Output(script: scriptPubKey, value: value));
     return outs.length - 1;
+  }
+
+  setPayload(Uint8List payload) {
+    this.payload = payload;
   }
 
   bool hasWitnesses() {
@@ -250,6 +255,7 @@ class Transaction {
         varuint.encodingLength(outs.length) +
         ins.fold(0, (sum, input) => sum + 40 + varSliceSize(input.script)) +
         outs.fold(0, (sum, output) => sum + 8 + varSliceSize(output.script)) +
+        (this.payload != null ? varSliceSize(this.payload) : 0) +
         (hasWitness
             ? ins.fold(0, (sum, input) => sum + vectorSize(input.witness))
             : 0);
@@ -295,13 +301,14 @@ class Transaction {
     return ins.length == 1 && isCoinbaseHash(ins[0].hash);
   }
 
-  Uint8List getHash() {
-    // if (isCoinbase()) return Uint8List.fromList(List.generate(32, (i) => 0));
+  Uint8List getHash({forWitness: false}) {
+    if (forWitness && isCoinbase())
+      return Uint8List.fromList(List.generate(32, (i) => 0));
     return bcrypto.hash256(_toBuffer(null, null, false));
   }
 
   String getId() {
-    return HEX.encode(getHash().reversed.toList());
+    return HEX.encode(getHash(forWitness: false).reversed.toList());
   }
 
   _toBuffer([Uint8List buffer, initialOffset, bool _ALLOW_WITNESS = false]) {
@@ -390,6 +397,10 @@ class Transaction {
     }
 
     writeUInt32(this.locktime);
+
+    if (this.payload != null) {
+      writeVarSlice(this.payload);
+    }
     // End writeBuffer
 
     // avoid slicing unless necessary
@@ -408,6 +419,7 @@ class Transaction {
     tx.outs = _tx.outs.map((output) {
       return Output.clone(output);
     }).toList();
+    tx.payload = _tx.payload;
     return tx;
   }
 
@@ -503,6 +515,9 @@ class Transaction {
     }
 
     tx.locktime = readUInt32();
+    try {
+      tx.payload = readVarSlice();
+    } catch (e) {}
 
     if (noStrict) return tx;
 

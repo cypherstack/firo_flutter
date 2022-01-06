@@ -330,9 +330,9 @@ class TransactionBuilder {
   _addInputUnsafe(Uint8List hash, int vout, Input options) {
     String txHash = HEX.encode(hash);
     Input input;
-    if (isCoinbaseHash(hash)) {
-      throw new ArgumentError('coinbase inputs not supported');
-    }
+    // if (isCoinbaseHash(hash)) {
+    //   throw new ArgumentError('coinbase inputs not supported');
+    // }
     final prevTxOut = '$txHash:$vout';
     if (_prevTxSet[prevTxOut] != null)
       throw new ArgumentError('Duplicate TxOut: ' + prevTxOut);
